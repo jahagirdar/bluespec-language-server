@@ -1,0 +1,14 @@
+[project]
+name = "bsv-language-server"
+version = "0.1.0"
+description = "A Language Server for Bluespec SystemVerilog"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pygls>=2.0.0",
+    "tree-sitter>=0.25.2",
+    "tree-sitter-bsv>=0.1.0",
+]
+
+[project.scripts]
+bsv_language_server = "bsv_language_server.server:main"
