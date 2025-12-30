@@ -4,11 +4,21 @@ from tree_sitter import Language, Parser, Query, QueryCursor
 import tree_sitter_bsv
 import json
 import logging 
+import functools
 
-logging.basicConfig(filename='bsv_parser.log', level=logging.DEBUG,
-format='%(module)s %(funcName)s %(lineno)d %(levelname)s:: %(message)s') 
-log=logging.getLogger()
-
+log = logging.getLogger(__name__)
+def trace(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        log.debug(f"ENTER: {func.__name__} with args={args}")
+        try:
+            result = func(*args, **kwargs)
+            log.debug(f"EXIT: {func.__name__} (Success)")
+            return result
+        except Exception as e:
+            log.error(f"EXIT: {func.__name__} (Failed with Error: {e})")
+            raise
+    return wrapper
 
 #from . import _binding
 
@@ -27,6 +37,7 @@ class BSVProjectParser:
     def _get_text(self, node):
         return node.text.decode('utf8') if node else None
 
+    @trace
     def parse_recursive(self, filename,top=False):
         log.debug(f"{filename=} ,{self.search_paths=}")
         if os.path.dirname(filename) not in self.search_paths:
@@ -35,7 +46,6 @@ class BSVProjectParser:
         self.top=top
         filepath = self._resolve(filename)
         log.debug(f"{filename=} resolved to {filepath=}")
-        # print(filepath,filename)
         self.filepath=filepath
         if not filepath or filepath in self.visited:
             return False
@@ -56,6 +66,7 @@ class BSVProjectParser:
             self._extract_definitions(root)
             log.debug(f" {filename=} {self.results=}")
 
+    @trace
     def extract_struct(self,inner):
         if inner.type == 'typedefStruct':
             name = self._get_text(inner.child_by_field_name('struct_name'))
@@ -70,6 +81,7 @@ class BSVProjectParser:
             self.results["structs"][name] = fields
             log.debug(f"found struct {name=} {fields=}")
 
+    @trace
     def extract_enum(self,inner):
         name = self._get_text(inner.child_by_field_name('enum_name'))
         items = []
@@ -81,24 +93,29 @@ class BSVProjectParser:
         self.results["enums"][name] = items
         log.debug(f"found enum {name=} {items=}")
 
+    @trace
     def _extract_instance(self,node):
         v_node = node.child_by_field_name('variable_name')
         t_node = node.child_by_field_name('type')
+        log.debug(f"{v_node=} {t_node=} {node.text=} {t_node.children=}")
         ifcs =[x for x in t_node.children]
         ifc_type=None
         ifc_name = self._get_text(ifcs[0])
         if len(ifcs) >1:
-            ifc_type =  self._get_text(ifcs[1].children_by_field_name('type')[0])
+            v_type=ifcs[1].children_by_field_name('type')
+            if (len(v_type)>0):
+                log.debug(f"{v_type=} {ifcs[1].text=}")
+                ifc_type =  self._get_text(ifcs[1].children_by_field_name('type')[0])
 
         name=self._get_text(v_node)
         value={'ifc':ifc_name,'type':ifc_type}
         self.results["instances"][name] = value
         log.debug(f"found instance {name=} {value=}")
 
+    @trace
     def _extract_interface(self,node):
         ifc={'methods':{},'actions':{},'interfaces':{},'av':{}}
         log.debug(f"{node=} {node.named_children=} ")
-        # print([(x.text,x) for x in node.named_children])
         ifc_name= self._get_text(node.child_by_field_name('interface_name'))
         log.debug(f"{ifc_name=}")
         for x in node.named_children:
@@ -114,7 +131,6 @@ class BSVProjectParser:
                 params=x.child_by_field_name('methodparamlist')
                 ifc['actions'][self._get_text(v_var)] ={'params':self._get_text(params)}
             elif x.type == 'interfaceinst':
-                print("DBFG",[(p.text,p) for p in x.named_children])
                 v_type=self._get_text(x.child_by_field_name('type'))
                 name=self._get_text(x.child_by_field_name('variable_name'))
                 ifc['interfaces'][name] = v_type
@@ -123,8 +139,8 @@ class BSVProjectParser:
                 pass
             self.results["interfaces"][ifc_name]=ifc
             log.debug(f"{ifc=}")
+    @trace
     def _extract_definitions(self, root):
-        # print(root.named_children)
         for node in root.named_children:
             if node.type== 'typedefs':
                 if node.named_children[0].type == 'typedefEnum':
@@ -145,23 +161,23 @@ class BSVProjectParser:
                                 self._extract_instance(ncc)
 
 
+    @trace
     def _extract_assignment(self, node):
         v_node = node.child_by_field_name('variable_name')
         t_node = node.child_by_field_name('type')
-        #print("DBG",v_node,t_node,node)
         if v_node:
             name = self._get_text(v_node)
             # If 'let' is used, type node might be missing
             dtype = self._get_text(t_node) if t_node else "inferred (let)"
             self.results["variables"][name] = f"{dtype}"
 
+    @trace
     def _resolve(self, name):
         self.msg+=f"resolving {name}"
         for p in self.search_paths:
             full = os.path.join(p, name if name.endswith('.bsv') else f"{name}.bsv")
             if os.path.exists(full): return full
         if os.path.exists(name): return name
-        #print(f"{name=},{self.search_paths}")
         return None
 
 # Usage
@@ -172,5 +188,4 @@ if __name__ == "__main__":
     #analyzer.parse_recursive('example.bsv')
     analyzer.parse_recursive('../../tests/test1.bsv',top=True)
     
-    # print(analyzer.results)
     print(json.dumps(analyzer.results, indent=2))

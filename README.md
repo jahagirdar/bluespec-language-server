@@ -3,6 +3,8 @@
 * Uses bsc for linting.
 * Uses tree-sitter for Completion on `.`,`{` and `(` character
 
+![See it in action](images/output.gif)
+
 ## Installation
 ```
 pip install bsv-language-server
