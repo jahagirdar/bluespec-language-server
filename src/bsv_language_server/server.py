@@ -9,12 +9,15 @@ import json
 import tempfile
 
 # Import the cross-platform Tree-sitter parser [cite: 14]
-from .bsv_parser import BSVProjectParser 
-import logging 
+from .bsv_parser import BSVProjectParser
+import logging
 
-logging.basicConfig(filename=os.path.join(tempfile.gettempdir(),'bsv_lsp.log'), level=logging.DEBUG,
-format='%(module)s %(funcName)s %(lineno)d %(levelname)s:: %(message)s') 
-log=logging.getLogger()
+logging.basicConfig(
+    filename=os.path.join(tempfile.gettempdir(), "bsv_lsp.log"),
+    level=logging.DEBUG,
+    format="%(module)s %(funcName)s %(lineno)d %(levelname)s:: %(message)s",
+)
+log = logging.getLogger()
 
 
 def get_project_flags(ls, doc_path):
@@ -24,14 +27,15 @@ def get_project_flags(ls, doc_path):
         flag_file = os.path.join(current_dir, ".bscflags")
         if os.path.exists(flag_file):
             all_args = []
-            with open(flag_file, 'r') as f:
+            with open(flag_file, "r") as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#"):
                         all_args.extend(shlex.split(line))
-            return all_args # [cite: 17]
+            return all_args  # [cite: 17]
         current_dir = os.path.dirname(current_dir)
     return []
+
 
 # 1. (Error|Warning) -> The type
 # 2. (\d+) -> Line
@@ -41,13 +45,15 @@ def get_project_flags(ls, doc_path):
 # The (?=^(?:Error|Warning):|\Z) is a "lookahead" that stops before the next error.
 BSC_BLOCK_PATTERN = re.compile(
     r'^(Error|Warning): ".*?", line (\d+), column (\d+): \(([^)]*)\)(.*?)(?=^(?:Error|Warning):|\Z)',
-    re.MULTILINE | re.DOTALL
+    re.MULTILINE | re.DOTALL,
 )
+
+
 class BluespecLanguageServer(LanguageServer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.compiler_flags = ["-p", "+:default"]
-        # Initialize the parser with an empty search path initially 
+        # Initialize the parser with an empty search path initially
         self.analyzer = BSVProjectParser([])
 
     def update_analyzer_paths(self, flags):
@@ -56,12 +62,13 @@ class BluespecLanguageServer(LanguageServer):
         try:
             for i, flag in enumerate(flags):
                 if flag == "-p" and i + 1 < len(flags):
-                    paths.extend(flags[i+1].split(":"))
-            clean_paths = [p for p in paths if not p.startswith("+")] # [cite: 20]
+                    paths.extend(flags[i + 1].split(":"))
+            clean_paths = [p for p in paths if not p.startswith("+")]  # [cite: 20]
             self.analyzer.search_paths = list(set(clean_paths))
             log.debug(f"Parser search paths updated: {self.analyzer.search_paths}")
         except Exception as e:
             log.debug(f"ERROR: update_analyzer_paths failed: {e}")
+
 
 server = BluespecLanguageServer("bsv-language-server", "v1.0")
 
@@ -75,36 +82,35 @@ def initialize(ls: BluespecLanguageServer, params: types.InitializeParams):
     log.debug(f"INITIALIZE received: {params}")
     options = params.initialization_options or {}
     try:
-        if 'compilerFlags' in options:
-            ls.compiler_flags = options['compilerFlags']
+        if "compilerFlags" in options:
+            ls.compiler_flags = options["compilerFlags"]
             log.debug(f"compiler_flags from init options: {ls.compiler_flags}")
             ls.update_analyzer_paths(ls.compiler_flags)  # Sync parser immediately
         else:
-            log.debug(f"No compilerFlags in options; using default: {ls.compiler_flags}")
+            log.debug(
+                f"No compilerFlags in options; using default: {ls.compiler_flags}"
+            )
     except Exception as e:
         log.debug(f"Init options processing error: {e}")
-        ls.window_log_message(types.LogMessageParams(
-            type=types.MessageType.Warning,
-            message=f"Init options error: {e}"
-        ))
+        ls.window_log_message(
+            types.LogMessageParams(
+                type=types.MessageType.Warning, message=f"Init options error: {e}"
+            )
+        )
 
     capabilities = types.ServerCapabilities(
         text_document_sync=types.TextDocumentSyncOptions(
             open_close=True,
-            change=types.TextDocumentSyncKind.Full  # Full for simplicity; use Incremental for efficiency
+            change=types.TextDocumentSyncKind.Full,  # Full for simplicity; use Incremental for efficiency
         ),
         # Completion with your triggers
-        completion_provider=types.CompletionOptions(
-            trigger_characters=['.', '{', '(']
-        ),
+        completion_provider=types.CompletionOptions(trigger_characters=[".", "{", "("]),
         # Hover support
         hover_provider=True,
     )
     server_info = types.ServerInfo(name="bsv-language-server", version="v1.0")
-    return types.InitializeResult(
-        capabilities=capabilities,
-        server_info=server_info
-    )
+    return types.InitializeResult(capabilities=capabilities, server_info=server_info)
+
 
 @server.feature(types.INITIALIZED)
 async def lsp_initialized(ls: BluespecLanguageServer, params: types.InitializedParams):
@@ -117,8 +123,11 @@ async def lsp_initialized(ls: BluespecLanguageServer, params: types.InitializedP
     except Exception as e:
         log.debug(f"Post-init parse error: {e}")
 
+
 @server.feature(types.WORKSPACE_DID_CHANGE_CONFIGURATION)
-async def did_change_configuration(ls: BluespecLanguageServer, params: types.DidChangeConfigurationParams):
+async def did_change_configuration(
+    ls: BluespecLanguageServer, params: types.DidChangeConfigurationParams
+):
     """Fetch user-defined flags from the editor settings."""
     log.debug(f"WORKSPACE_DID_CHANGE_CONFIGURATION got params {params}")
     try:
@@ -130,23 +139,30 @@ async def did_change_configuration(ls: BluespecLanguageServer, params: types.Did
         if "compilerFlags" in config:
             ls.compiler_flags = config["compilerFlags"]
             ls.update_analyzer_paths(ls.compiler_flags)  # Sync parser paths
-            ls.window_show_message(types.ShowMessageParams(
-                type=types.MessageType.Info,
-                message="Bluespec flags updated!"
-            ))
+            ls.window_show_message(
+                types.ShowMessageParams(
+                    type=types.MessageType.Info, message="Bluespec flags updated!"
+                )
+            )
     except Exception as e:
         log.debug(f"Config error: {e}")
-        ls.window_log_message(types.LogMessageParams(
-            type=types.MessageType.Error,
-            message=f"Error loading config: {e}"
-        ))
+        ls.window_log_message(
+            types.LogMessageParams(
+                type=types.MessageType.Error, message=f"Error loading config: {e}"
+            )
+        )
+
 
 @server.feature(types.TEXT_DOCUMENT_DID_OPEN)
-async def parse_on_open(ls: BluespecLanguageServer, params: types.DidOpenTextDocumentParams):
-    lint_and_parse(ls,params)
+async def parse_on_open(
+    ls: BluespecLanguageServer, params: types.DidOpenTextDocumentParams
+):
+    lint_and_parse(ls, params)
+
+
 @server.feature(
     types.TEXT_DOCUMENT_COMPLETION,
-    types.CompletionOptions(trigger_characters=['.', '{', '('])
+    types.CompletionOptions(trigger_characters=[".", "{", "("]),
 )
 def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
     doc = ls.workspace.get_text_document(params.text_document.uri)
@@ -157,19 +173,19 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
     line = doc.lines[params.position.line]
     char_pos = params.position.character
     # log.debug(f"COMPLETION {doc},{doc.path}")
-    
+
     # Get the text on the current line up to the cursor
     before_cursor = line[:char_pos]
     log.debug(f"{before_cursor=}")
-    
+
     items = []
 
-# 1. Handle Module Instances (e.g., Reg#(Bar_st) r)
-    if before_cursor.endswith('.'):
+    # 1. Handle Module Instances (e.g., Reg#(Bar_st) r)
+    if before_cursor.endswith("."):
         # Match the word before the dot (e.g., 'rr' in 'rr.')
-        match = re.search(r'([\w\.]+)\.$', before_cursor)
+        match = re.search(r"([\w\.]+)\.$", before_cursor)
         if match:
-            full_path = match.group(1).split('.')
+            full_path = match.group(1).split(".")
             base_name = full_path[0]
 
             # 1. Resolve the initial object
@@ -179,10 +195,10 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
             # Check if it's a module instance (from instances dict)
             if base_name in ls.analyzer.results.get("instances", {}):
                 inst_data = ls.analyzer.results["instances"][base_name]
-                current_ifc = inst_data.get('ifc')
+                current_ifc = inst_data.get("ifc")
                 # If it's a Reg/Wire, the 'type' is the underlying data structure
                 if current_ifc in ["Reg", "Wire", "RWire"]:
-                    current_struct = inst_data.get('type')
+                    current_struct = inst_data.get("type")
 
             # Check if it's a standard variable
             elif base_name in ls.analyzer.results.get("variables", {}):
@@ -194,7 +210,9 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
                 segment = full_path[i]
 
                 # If we are inside an interface, look for sub-interfaces
-                if current_ifc and current_ifc in ls.analyzer.results.get("interfaces", {}):
+                if current_ifc and current_ifc in ls.analyzer.results.get(
+                    "interfaces", {}
+                ):
                     ifc_def = ls.analyzer.results["interfaces"][current_ifc]
                     sub_ifcs = ifc_def.get("interfaces", {})
                     if segment in sub_ifcs:
@@ -202,7 +220,9 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
                         continue
 
                 # If we are inside a struct, look for nested struct fields
-                if current_struct and current_struct in ls.analyzer.results.get("structs", {}):
+                if current_struct and current_struct in ls.analyzer.results.get(
+                    "structs", {}
+                ):
                     fields = ls.analyzer.results["structs"][current_struct]
                     found = False
                     for f in fields:
@@ -210,7 +230,8 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
                             current_struct = f[segment]
                             found = True
                             break
-                    if found: continue
+                    if found:
+                        continue
 
                 # Path broken
                 current_ifc, current_struct = None, None
@@ -221,30 +242,46 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
             if current_ifc:
                 # Built-in fallback for Reg/Wire if not in interfaces dict
                 if current_ifc == "Reg":
-                    items.append(types.CompletionItem(label="_read", kind=types.CompletionItemKind.Method))
-                    items.append(types.CompletionItem(label="_write", kind=types.CompletionItemKind.Method))
+                    items.append(
+                        types.CompletionItem(
+                            label="_read", kind=types.CompletionItemKind.Method
+                        )
+                    )
+                    items.append(
+                        types.CompletionItem(
+                            label="_write", kind=types.CompletionItemKind.Method
+                        )
+                    )
 
                 ifc_def = ls.analyzer.results.get("interfaces", {}).get(current_ifc)
                 if ifc_def:
                     # Iterate through categorized members
                     for cat in ["methods", "actions", "av", "interfaces"]:
                         for name, val in ifc_def.get(cat, {}).items():
-                            kind = types.CompletionItemKind.Interface if cat == "interfaces" else types.CompletionItemKind.Method
-                            items.append(types.CompletionItem(
-                                label=name,
-                                kind=kind,
-                                detail=f"({cat[:-1]}) {val}"
-                            ))
+                            kind = (
+                                types.CompletionItemKind.Interface
+                                if cat == "interfaces"
+                                else types.CompletionItemKind.Method
+                            )
+                            items.append(
+                                types.CompletionItem(
+                                    label=name, kind=kind, detail=f"({cat[:-1]}) {val}"
+                                )
+                            )
 
             # B. If the path leads to a Struct (e.g., rb. or rb.field.)
-            if current_struct and current_struct in ls.analyzer.results.get("structs", {}):
+            if current_struct and current_struct in ls.analyzer.results.get(
+                "structs", {}
+            ):
                 for f in ls.analyzer.results["structs"][current_struct]:
                     name = list(f.keys())[0]
-                    items.append(types.CompletionItem(
-                        label=name,
-                        kind=types.CompletionItemKind.Field,
-                        detail=f.get(name)
-                    ))
+                    items.append(
+                        types.CompletionItem(
+                            label=name,
+                            kind=types.CompletionItemKind.Field,
+                            detail=f.get(name),
+                        )
+                    )
 
     # --- OTHER TRIGGERS (Struct init '{' and Function '(') ---
     # ... (Keep existing logic for { and ( ) ...
@@ -277,7 +314,7 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
     #        else:
     #            obj_type = ls.analyzer.results["variables"].get(obj_name)
     #            log.debug(f"{obj_type=},{obj_name=}")
-    #            
+    #
     #            if obj_type in ls.analyzer.results["structs"]:
     #                fields = ls.analyzer.results["structs"][obj_type]
     #                for f in fields:
@@ -289,9 +326,9 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
     #                    ))
 
     # --- TRIGGER 2: Struct Initialization (AB {) ---
-    elif before_cursor.endswith('{'):
+    elif before_cursor.endswith("{"):
         # Match the struct name before the brace (e.g., 'AB {')
-        match = re.search(r'(\w+)\s*\{$', before_cursor)
+        match = re.search(r"(\w+)\s*\{$", before_cursor)
         if match:
             struct_name = match.group(1)
             if struct_name in ls.analyzer.results["structs"]:
@@ -299,22 +336,26 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
                 # Suggest all fields for the struct
                 for f in fields:
                     name = list(f.keys())[0]
-                    items.append(types.CompletionItem(
-                        label=name,
-                        kind=types.CompletionItemKind.Property,
-                        insert_text=f"{name}: ", # Helper: adds colon automatically
-                        detail=f[name]
-                    ))
+                    items.append(
+                        types.CompletionItem(
+                            label=name,
+                            kind=types.CompletionItemKind.Property,
+                            insert_text=f"{name}: ",  # Helper: adds colon automatically
+                            detail=f[name],
+                        )
+                    )
 
     # --- TRIGGER 3: Function/Method (mkReg() or method() ) ---
-    elif before_cursor.endswith('('):
+    elif before_cursor.endswith("("):
         # Suggest variables currently in scope as arguments
         for var_name, var_type in ls.analyzer.results["variables"].items():
-            items.append(types.CompletionItem(
-                label=var_name,
-                kind=types.CompletionItemKind.Variable,
-                detail=var_type
-            ))
+            items.append(
+                types.CompletionItem(
+                    label=var_name,
+                    kind=types.CompletionItemKind.Variable,
+                    detail=var_type,
+                )
+            )
 
     return types.CompletionList(is_incomplete=False, items=items)
 
@@ -327,7 +368,7 @@ def lint_and_parse(ls: BluespecLanguageServer, params: types.DidSaveTextDocument
     log.debug(f"Project {project_flags=}")
     flags = list(ls.compiler_flags)
     if project_flags:
-        flags = project_flags # Use project file instead of globals
+        flags = project_flags  # Use project file instead of globals
 
     # Run bsc in check-only mode
     # -u: compile, -v: verbose, -check: only check syntax/types
@@ -356,22 +397,26 @@ def lint_and_parse(ls: BluespecLanguageServer, params: types.DidSaveTextDocument
             else types.DiagnosticSeverity.Warning
         )
 
-        diagnostics.append(types.Diagnostic(
-            range=types.Range(
-                start=types.Position(line=line_no, character=col_no),
-                end=types.Position(line=line_no, character=col_no + 1)
-            ),
-            message=clean_msg,
-            severity=severity,
-            source="bsc"
-        ))
+        diagnostics.append(
+            types.Diagnostic(
+                range=types.Range(
+                    start=types.Position(line=line_no, character=col_no),
+                    end=types.Position(line=line_no, character=col_no + 1),
+                ),
+                message=clean_msg,
+                severity=severity,
+                source="bsc",
+            )
+        )
         log.debug(f"{diagnostics=}")
 
-    ls.text_document_publish_diagnostics(types.PublishDiagnosticsParams(
-        uri=doc.uri, diagnostics=diagnostics))
+    ls.text_document_publish_diagnostics(
+        types.PublishDiagnosticsParams(uri=doc.uri, diagnostics=diagnostics)
+    )
     # Refresh the Tree-sitter symbol table after save [cite: 32]
     log.debug("Refreshing symbol table...")
     ls.analyzer.parse_recursive(doc.path, top=True)
+
 
 @server.feature(types.TEXT_DOCUMENT_HOVER)
 def hover(ls: BluespecLanguageServer, params: types.HoverParams):
@@ -381,10 +426,15 @@ def hover(ls: BluespecLanguageServer, params: types.HoverParams):
 
     # Simple logic: If it's 'Reg', show BSV documentation/type
     if word == "Reg":
-        return types.Hover(contents="Interface: Register\nProvides _read and _write methods.")
+        return types.Hover(
+            contents="Interface: Register\nProvides _read and _write methods."
+        )
+
+
 def main():
     server.start_io()
     # server.start_tcp(host="127.0.0.1",port="2087")
+
 
 if __name__ == "__main__":
     main()
