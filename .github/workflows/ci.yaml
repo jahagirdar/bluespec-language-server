@@ -34,12 +34,8 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - uses: actions/upload-artifact@v4
-      with:
-        name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
-        path: ./wheelhouse/*.whl
     - name: Build Wheel
-      rul: pip wheel .
+      run: pip wheel .
   publish:
     name: Publish to PyPI
     needs: [build]
