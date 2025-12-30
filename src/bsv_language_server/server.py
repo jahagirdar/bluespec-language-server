@@ -12,12 +12,14 @@ import tempfile
 from .bsv_parser import BSVProjectParser
 import logging
 
+tempdir=os.path.join(tempfile.gettempdir(), "bsv_lsp.log")
 logging.basicConfig(
-    filename=os.path.join(tempfile.gettempdir(), "bsv_lsp.log"),
+    # filename=os.path.join(tempfile.gettempdir(), "bsv_lsp.log"),
+    filename=tempdir,
     level=logging.DEBUG,
     format="%(module)s %(funcName)s %(lineno)d %(levelname)s:: %(message)s",
 )
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 def get_project_flags(ls, doc_path):
@@ -257,6 +259,7 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
                 if ifc_def:
                     # Iterate through categorized members
                     for cat in ["methods", "actions", "av", "interfaces"]:
+                        log.debug(f"{ifc_def.get(cat,{})}")
                         for name, val in ifc_def.get(cat, {}).items():
                             kind = (
                                 types.CompletionItemKind.Interface

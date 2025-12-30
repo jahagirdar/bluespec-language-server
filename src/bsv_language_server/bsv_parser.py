@@ -128,8 +128,9 @@ class BSVProjectParser:
         ifc = {"methods": {}, "actions": {}, "interfaces": {}, "av": {}}
         log.debug(f"{node=} {node.named_children=} ")
         ifc_name = self._get_text(node.child_by_field_name("interface_name"))
-        log.debug(f"{ifc_name=}")
+        log.debug(f"{ifc_name=} {node.named_children=}")
         for x in node.named_children:
+            log.debug(f"{x.type=}")
             if x.type == "methoddef":
                 log.debug([(y.type, y.text) for y in x.named_children])
                 v_type = x.child_by_field_name("type")
@@ -138,16 +139,20 @@ class BSVProjectParser:
                 ifc["methods"][self._get_text(v_var)] = {"type": self._get_text(v_type)}
 
             elif x.type in ["actionvaluedef", "actiondef"]:
+                log.debug(f"{x.type=} {x.text=}{x.named_children=}")
                 v_var = x.child_by_field_name("variable_name")
                 params = x.child_by_field_name("methodparamlist")
-                ifc["actions"][self._get_text(v_var)] = {
-                    "params": self._get_text(params)
-                }
+                log.debug(f"{v_var=} {params=}")
+                # log.debug(f"{v_var.text=} {params.text=}") TODO fix params.
+                #ifc["actions"][self._get_text(v_var)] = { "params": self._get_text(params) }
+                ifc["actions"][self._get_text(v_var)] = { }
             elif x.type == "interfaceinst":
+                log.debug(f"{x.type=}")
                 v_type = self._get_text(x.child_by_field_name("type"))
                 name = self._get_text(x.child_by_field_name("variable_name"))
                 ifc["interfaces"][name] = v_type
             else:
+                log.debug(f"{x.type=}")
                 log.debug(node)
                 pass
             self.results["interfaces"][ifc_name] = ifc
