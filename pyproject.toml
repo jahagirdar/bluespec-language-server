@@ -12,3 +12,8 @@ dependencies = [
 
 [project.scripts]
 bsv_language_server = "bsv_language_server.server:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+]
