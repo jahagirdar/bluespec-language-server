@@ -44,12 +44,6 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: cibw-wheels-*
-          path: dist
-          merge-multiple: true
-
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
