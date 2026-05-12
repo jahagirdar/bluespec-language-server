@@ -10,9 +10,10 @@ import tempfile
 
 # Import the cross-platform Tree-sitter parser [cite: 14]
 from .bsv_parser import BSVProjectParser
+from .bsv_formatter import format_source
 import logging
 
-tempdir=os.path.join(tempfile.gettempdir(), "bsv_lsp.log")
+tempdir = os.path.join(tempfile.gettempdir(), "bsv_lsp.log")
 logging.basicConfig(
     # filename=os.path.join(tempfile.gettempdir(), "bsv_lsp.log"),
     filename=tempdir,
@@ -109,6 +110,8 @@ def initialize(ls: BluespecLanguageServer, params: types.InitializeParams):
         completion_provider=types.CompletionOptions(trigger_characters=[".", "{", "("]),
         # Hover support
         hover_provider=True,
+        # Formatting support
+        document_formatting_provider=True,
     )
     server_info = types.ServerInfo(name="bsv-language-server", version="v1.0")
     return types.InitializeResult(capabilities=capabilities, server_info=server_info)
@@ -259,7 +262,7 @@ def completions(ls: BluespecLanguageServer, params: types.CompletionParams):
                 if ifc_def:
                     # Iterate through categorized members
                     for cat in ["methods", "actions", "av", "interfaces"]:
-                        log.debug(f"{ifc_def.get(cat,{})}")
+                        log.debug(f"{ifc_def.get(cat, {})}")
                         for name, val in ifc_def.get(cat, {}).items():
                             kind = (
                                 types.CompletionItemKind.Interface
@@ -432,6 +435,26 @@ def hover(ls: BluespecLanguageServer, params: types.HoverParams):
         return types.Hover(
             contents="Interface: Register\nProvides _read and _write methods."
         )
+
+
+@server.feature(types.TEXT_DOCUMENT_FORMATTING)
+def format_document(ls: BluespecLanguageServer, params: types.DocumentFormattingParams):
+    doc = ls.workspace.get_text_document(params.text_document.uri)
+    source = doc.source
+    formatted = format_source(source)
+    if formatted == source:
+        return []
+    lines = source.splitlines()
+    last_line_len = len(lines[-1]) if lines else 0
+    return [
+        types.TextEdit(
+            range=types.Range(
+                start=types.Position(line=0, character=0),
+                end=types.Position(line=len(lines), character=last_line_len),
+            ),
+            new_text=formatted,
+        )
+    ]
 
 
 def main():

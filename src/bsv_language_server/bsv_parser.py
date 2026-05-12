@@ -144,8 +144,8 @@ class BSVProjectParser:
                 params = x.child_by_field_name("methodparamlist")
                 log.debug(f"{v_var=} {params=}")
                 # log.debug(f"{v_var.text=} {params.text=}") TODO fix params.
-                #ifc["actions"][self._get_text(v_var)] = { "params": self._get_text(params) }
-                ifc["actions"][self._get_text(v_var)] = { }
+                # ifc["actions"][self._get_text(v_var)] = { "params": self._get_text(params) }
+                ifc["actions"][self._get_text(v_var)] = {}
             elif x.type == "interfaceinst":
                 log.debug(f"{x.type=}")
                 v_type = self._get_text(x.child_by_field_name("type"))

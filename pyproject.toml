@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 bsv_language_server = "bsv_language_server.server:main"
+bsv_format = "bsv_language_server.bsv_formatter:main"
 
 [dependency-groups]
 dev = [
