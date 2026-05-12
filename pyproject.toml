@@ -1,6 +1,13 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
 [project]
 name = "bsv-language-server"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A Language Server for Bluespec SystemVerilog"
 readme = "README.md"
 requires-python = ">=3.10"
