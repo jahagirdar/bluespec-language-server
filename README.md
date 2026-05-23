@@ -1,4 +1,4 @@
-# Bluespec Language Server.
+# Bluespec Language Server and Formatter
 
 * Uses bsc for linting.
 * Uses tree-sitter for Completion on `.`,`{` and `(` character
